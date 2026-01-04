@@ -1,0 +1,5 @@
+{
+  "name": "Personal Literature Website",
+  "description": "A personal literature website with roles for admin, registered users, and visitors. Features include a works showcase, a collaborative creation area, and an admin panel for content moderation.",
+  "requestFramePermissions": []
+}
