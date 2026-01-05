@@ -1,10 +1,13 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { LoginIcon } from './icons/LoginIcon';
 import { LogoutIcon } from './icons/LogoutIcon';
 import { ADMIN_USERNAME } from '../constants';
+import { dataService } from '../services/dataService';
+// FIX: Import WorkType enum for runtime usage.
 import type { ViewState } from '../types';
+import { WorkType } from '../types';
 
 interface HeaderProps {
     setView: React.Dispatch<React.SetStateAction<ViewState>>;
@@ -17,6 +20,15 @@ export const Header: React.FC<HeaderProps> = ({ setView }) => {
     const [password, setPassword] = useState('');
     const [isRegistering, setIsRegistering] = useState(false);
     const [error, setError] = useState('');
+    const [signature, setSignature] = useState(dataService.getSignature());
+
+    useEffect(() => {
+        const handleUpdate = () => {
+             setSignature(dataService.getSignature());
+        };
+        window.addEventListener('storageUpdated', handleUpdate);
+        return () => window.removeEventListener('storageUpdated', handleUpdate);
+    }, []);
 
     const handleAuthAction = (e: React.FormEvent) => {
         e.preventDefault();
@@ -51,16 +63,17 @@ export const Header: React.FC<HeaderProps> = ({ setView }) => {
             <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-y-6 text-center">
                 {/* Left: Site Title */}
                 <div className="md:text-left">
-                    <h1 className="text-4xl md:text-5xl font-bold text-white tracking-wider">忘却录</h1>
-                    <p className="mt-2 text-sm text-gray-500 italic">
-                        “All those moments will be lost...in time,<br className="hidden sm:inline" />
-                        like...tears in rain.”
+                    {/* FIX: Use WorkType.Novel instead of the string "novel". */}
+                    <h1 className="text-4xl md:text-5xl font-bold text-white tracking-wider cursor-pointer" onClick={() => setView({page: WorkType.Novel, workId: null})}>忘却录</h1>
+                    <p className="mt-2 text-sm text-gray-500 italic whitespace-pre-wrap">
+                        {signature}
                     </p>
                 </div>
 
                 {/* Center: Author Name */}
-                <div className="md:text-center">
-                    <h2 className="text-3xl md:text-4xl font-serif font-bold text-white">虫狼L.S.Crow</h2>
+                <div className="md:text-center flex justify-center items-baseline">
+                    <span className="text-sm text-gray-400 opacity-75 mr-2">作者</span>
+                    <h2 className="text-3xl md:text-4xl text-white font-fancy">虫狼L.S.Crow</h2>
                 </div>
                 
                 {/* Right: Auth UI */}

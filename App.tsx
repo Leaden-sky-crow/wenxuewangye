@@ -12,6 +12,7 @@ import { CommunityView } from './components/CommunityView';
 import { SearchView } from './components/SearchView';
 import { SearchIcon } from './components/icons/SearchIcon';
 import { Footer } from './components/Footer';
+import { CollectionView } from './components/CollectionView';
 
 const App: React.FC = () => {
   const [view, setView] = useState<ViewState>({ page: WorkType.Novel, workId: null });
@@ -41,11 +42,13 @@ const App: React.FC = () => {
       case 'detail':
         return <WorkDetail workId={view.workId!} setView={setView} />;
       case 'submit':
-        return <SubmitWork setView={setView} />;
+        return <SubmitWork setView={setView} workToEditId={view.workId} />;
       case 'admin':
         return <AdminPanel setView={setView} />;
       case 'search':
         return <SearchView query={view.query || ''} setView={setView} />;
+      case 'collection':
+        return <CollectionView collectionId={view.collectionId!} setView={setView} />;
       default:
         return <CategoryView category={WorkType.Novel} setView={setView} />;
     }

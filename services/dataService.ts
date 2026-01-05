@@ -1,5 +1,5 @@
 
-import type { User, Work, Comment } from '../types';
+import type { User, Work, Comment, Collection } from '../types';
 import { Role, WorkType, Status } from '../types';
 import { ADMIN_USERNAME } from '../constants';
 
@@ -27,6 +27,14 @@ const initData = () => {
         localStorage.setItem('comments', JSON.stringify([]));
         localStorage.setItem('comments_initialized', 'true');
     }
+    if (!localStorage.getItem('collections_initialized')) {
+        localStorage.setItem('collections', JSON.stringify([]));
+        localStorage.setItem('collections_initialized', 'true');
+    }
+    // Initialize signature
+    if (!localStorage.getItem('site_signature')) {
+        localStorage.setItem('site_signature', '“All those moments will be lost...in time, like...tears in rain.”');
+    }
 };
 
 const getItems = <T,>(key: string): T[] => {
@@ -47,9 +55,27 @@ initData();
 
 export const dataService = {
     getUsers: () => getItems<User>('users'),
-    getWorks: () => getItems<Work>('works').sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    
+    // Sort logic: Pinned first, then by date descending
+    getWorks: () => getItems<Work>('works').sort((a,b) => {
+        const aPinned = a.isPinned ? 1 : 0;
+        const bPinned = b.isPinned ? 1 : 0;
+        if (aPinned !== bPinned) {
+            return bPinned - aPinned; // Pinned items come first
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }),
+    
     getComments: () => getItems<Comment>('comments'),
+    getCollections: () => getItems<Collection>('collections'),
     getLastEdited: () => localStorage.getItem('lastEdited'),
+    
+    getSignature: () => localStorage.getItem('site_signature') || '',
+
+    updateSignature: (text: string) => {
+        localStorage.setItem('site_signature', text);
+        updateLastEdited();
+    },
 
     addUser: (username: string, password_raw: string): User | null => {
         const users = dataService.getUsers();
@@ -66,12 +92,78 @@ export const dataService = {
         return newUser;
     },
 
-    addWork: (work: Omit<Work, 'id' | 'createdAt'>): Work => {
+    addCollection: (name: string, author: string): Collection => {
+        const collections = dataService.getCollections();
+        const newCollection: Collection = {
+            id: Date.now(),
+            name,
+            author,
+            createdAt: new Date().toISOString()
+        };
+        setItems('collections', [...collections, newCollection]);
+        return newCollection;
+    },
+
+    addWork: (work: Omit<Work, 'id' | 'createdAt' | 'isPinned' | 'isFeatured' | 'isHidden'>): Work => {
         const works = dataService.getWorks();
-        const newWork: Work = { ...work, id: Date.now(), createdAt: new Date().toISOString() };
+        const newWork: Work = { 
+            ...work, 
+            id: Date.now(), 
+            createdAt: new Date().toISOString(),
+            isPinned: false,
+            isFeatured: false,
+            isHidden: false,
+        };
         setItems('works', [...works, newWork]);
         updateLastEdited();
         return newWork;
+    },
+    
+    submitWorkEdit: (workId: number, draft: { title: string, content: string, excerpt?: string }) => {
+        let works = dataService.getWorks();
+        works = works.map(w => w.id === workId ? { 
+            ...w, 
+            hasPendingEdit: true,
+            draftTitle: draft.title,
+            draftContent: draft.content,
+            draftExcerpt: draft.excerpt,
+        } : w);
+        setItems('works', works);
+        updateLastEdited();
+    },
+    
+    approveWorkEdit: (workId: number) => {
+        let works = dataService.getWorks();
+        works = works.map(w => {
+            if (w.id === workId) {
+                return {
+                    ...w,
+                    title: w.draftTitle!,
+                    content: w.draftContent!,
+                    excerpt: w.draftExcerpt,
+                    hasPendingEdit: false,
+                    draftTitle: undefined,
+                    draftContent: undefined,
+                    draftExcerpt: undefined,
+                }
+            }
+            return w;
+        });
+        setItems('works', works);
+        updateLastEdited();
+    },
+
+    rejectWorkEdit: (workId: number) => {
+        let works = dataService.getWorks();
+        works = works.map(w => w.id === workId ? { 
+            ...w, 
+            hasPendingEdit: false,
+            draftTitle: undefined,
+            draftContent: undefined,
+            draftExcerpt: undefined,
+        } : w);
+        setItems('works', works);
+        updateLastEdited();
     },
 
     addComment: (comment: Omit<Comment, 'id' | 'createdAt'>): Comment => {
@@ -89,6 +181,27 @@ export const dataService = {
         updateLastEdited();
     },
 
+    toggleWorkPin: (id: number) => {
+        let works = dataService.getWorks();
+        works = works.map(w => w.id === id ? { ...w, isPinned: !w.isPinned } : w);
+        setItems('works', works);
+        updateLastEdited();
+    },
+
+    toggleWorkFeature: (id: number) => {
+        let works = dataService.getWorks();
+        works = works.map(w => w.id === id ? { ...w, isFeatured: !w.isFeatured } : w);
+        setItems('works', works);
+        updateLastEdited();
+    },
+
+    toggleWorkVisibility: (id: number) => {
+        let works = dataService.getWorks();
+        works = works.map(w => w.id === id ? { ...w, isHidden: !w.isHidden } : w);
+        setItems('works', works);
+        updateLastEdited();
+    },
+
     updateCommentStatus: (id: number, status: Status) => {
         let comments = dataService.getComments();
         comments = comments.map(c => c.id === id ? { ...c, status } : c);
@@ -100,6 +213,12 @@ export const dataService = {
         let works = dataService.getWorks();
         works = works.filter(w => w.id !== id);
         setItems('works', works);
+        
+        // Also delete associated comments to prevent orphaned data
+        let comments = dataService.getComments();
+        comments = comments.filter(c => c.workId !== id);
+        setItems('comments', comments);
+
         updateLastEdited();
     },
 

@@ -31,6 +31,13 @@ export interface User {
   role: Role;
 }
 
+export interface Collection {
+  id: number;
+  name: string;
+  author: string; // username of the creator
+  createdAt: string;
+}
+
 export interface Work {
   id: number;
   title: string;
@@ -40,7 +47,21 @@ export interface Work {
   category: WorkType;
   isPersonal: boolean;
   status: Status;
+  isPinned?: boolean;
+  isFeatured?: boolean;
+  isHidden?: boolean;
   createdAt: string;
+  excerpt?: string;
+
+  // Collection feature
+  collectionId?: number | null;
+  collectionName?: string | null;
+
+  // Edit feature
+  hasPendingEdit?: boolean;
+  draftTitle?: string;
+  draftContent?: string;
+  draftExcerpt?: string;
 }
 
 export interface Comment {
@@ -53,7 +74,8 @@ export interface Comment {
 }
 
 export type ViewState = {
-  page: WorkType | 'community' | 'detail' | 'submit' | 'admin' | 'search';
+  page: WorkType | 'community' | 'detail' | 'submit' | 'admin' | 'search' | 'collection';
   workId: number | null;
+  collectionId?: number | null;
   query?: string;
 };
